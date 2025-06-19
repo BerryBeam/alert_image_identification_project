@@ -1,57 +1,83 @@
+import os
+import numpy as np
+from tensorflow.keras.applications import MobileNetV2
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dropout, Dense
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
 
-# 1. Image Preprocessing
-train_dir = "dataset/train"
+train_dir = 'dataset/train'
+val_dir = 'dataset/val'
+
 img_size = (224, 224)
 batch_size = 32
+epochs = 20
+learning_rate = 1e-4
 
-datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+num_classes = len(next(os.walk(train_dir))[1])
 
-train_data = datagen.flow_from_directory(
+train_datagen = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
+    rotation_range=30,
+    zoom_range=0.3,
+    brightness_range=(0.3, 1.2),
+    width_shift_range=0.2,
+    height_shift_range=0.2,
+    shear_range=0.15,
+    horizontal_flip=True,
+    fill_mode="nearest"
+)
+
+val_datagen = ImageDataGenerator(preprocessing_function=preprocess_input)
+
+train_gen = train_datagen.flow_from_directory(
     train_dir,
     target_size=img_size,
     batch_size=batch_size,
-    class_mode='categorical',
-    subset='training'
+    class_mode='categorical'
 )
 
-val_data = datagen.flow_from_directory(
-    train_dir,
+val_gen = val_datagen.flow_from_directory(
+    val_dir,
     target_size=img_size,
     batch_size=batch_size,
-    class_mode='categorical',
-    subset='validation'
+    class_mode='categorical'
 )
 
-# 2. Build Model
-model = Sequential([
-    Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)),
-    MaxPooling2D(2, 2),
+# Save label map to decode predictions later
+with open("label_map.txt", "w") as f:
+    for label, index in train_gen.class_indices.items():
+        f.write(f"{index},{label}\n")
 
-    Conv2D(64, (3, 3), activation='relu'),
-    MaxPooling2D(2, 2),
+# Load base model with pretrained ImageNet weights
+base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+base_model.trainable = True
 
-    Conv2D(128, (3, 3), activation='relu'),
-    MaxPooling2D(2, 2),
+# Fine-tune only the last 30 layers
+for layer in base_model.layers[:-30]:
+    layer.trainable = False
 
-    Flatten(),
-    Dense(256, activation='relu'),
-    Dropout(0.5),
-    Dense(train_data.num_classes, activation='softmax')  # Output layer
-])
+# Build classifier head
+x = base_model.output
+x = GlobalAveragePooling2D()(x)
+x = Dropout(0.3)(x)
+output = Dense(num_classes, activation='softmax')(x)
+model = Model(inputs=base_model.input, outputs=output)
 
-# 3. Compile
-model.compile(optimizer=Adam(), loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(
+    optimizer=Adam(learning_rate),
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
 
-# 4. Train
+checkpoint = ModelCheckpoint('car_symbol_transfer.h5', monitor='val_accuracy', save_best_only=True, verbose=1)
+early_stop = EarlyStopping(monitor='val_loss', patience=4, restore_best_weights=True)
+
 model.fit(
-    train_data,
-    validation_data=val_data,
-    epochs=10  # You can increase later
+    train_gen,
+    validation_data=val_gen,
+    epochs=epochs,
+    callbacks=[checkpoint, early_stop]
 )
-
-# 5. Save model
-model.save("car_symbol_model.h5")
