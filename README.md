@@ -1,6 +1,6 @@
 # onwa_project
 
-this code needs has three main sections-
+this code has three main sections-
 1) creating datsets from the alerts folder (refer to final_dataset_creation.py)
 2) training model using learning transfer - mobilevnet2 (refer to training_model_learning_transfer.py)
 3) finally it needs to run the model and identify alerts through a webcam and log the identified symbols and noting down duration and confidence percentage in the log
