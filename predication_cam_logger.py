@@ -1,20 +1,14 @@
-# ===========================================
-# 🚨 ALERT DETECTION SYSTEM - DOCUMENTED VERSION
-# ===========================================
-# Description: This script uses a pre-trained CNN to classify webcam input
-# and logs high-confidence alerts with a fallback mechanism for robustness.
-
 # === Step 1: Load class names from label_map.txt ===
-class_names = []  # List to store class names read from label_map.txt
+class_names = []
 with open("label_map.txt", "r") as f:
     for line in f:
         parts = line.strip().split(',')
         if len(parts) == 2:
-            class_names.append(parts[1])  # Extract class label
+            class_names.append(parts[1])
 NUM_CLASSES = len(class_names)
-print(f"✓ Loaded {NUM_CLASSES} classes:", class_names)
+print(f"Loaded {NUM_CLASSES} classes:", class_names)
 
-# === Step 2: Import necessary libraries ===
+# === Step 2: Import necessary functions and modules ===
 from datetime import datetime
 import numpy as np
 import cv2
@@ -31,11 +25,9 @@ from tensorflow.keras.regularizers import l2
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing.image import img_to_array
 
-# === Step 3: Build the model architecture ===
-# Load MobileNetV2 without top classification layer
+# === Step 3: Rebuild the model architecture (without pretrained weights) ===
 base_model = MobileNetV2(weights=None, include_top=False, input_shape=(224, 224, 3))
 
-# Add custom classification layers on top
 x = base_model.output
 x = GlobalAveragePooling2D()(x)
 x = Dense(512, activation='relu', kernel_regularizer=l2(0.001))(x)
@@ -48,23 +40,25 @@ output = Dense(NUM_CLASSES, activation='softmax', kernel_regularizer=l2(0.001))(
 
 model = Model(inputs=base_model.input, outputs=output)
 
-# === Step 4: Load trained weights ===
+# === Step 4: Load trained model weights ===
 model.load_weights('best_model.h5')
-print("✓ Model architecture rebuilt and weights loaded")
+print("Model architecture rebuilt and weights loaded")
 
-# === Step 5: Sanity check before running prediction ===
+# === Step 5: Verify critical components exist ===
 def verify_system():
+    """Validate all critical components before starting execution."""
     checks = {
         'model_loaded': 'model' in globals() and hasattr(model, 'predict'),
         'class_names_exists': 'class_names' in globals() and len(class_names) > 0,
         'preprocess_input': 'preprocess_input' in globals(),
         'img_to_array': 'img_to_array' in globals()
     }
+
     if not all(checks.values()):
-        missing = [k for k,v in checks.items() if not v]
+        missing = [k for k, v in checks.items() if not v]
         raise RuntimeError(f"Critical missing components: {missing}")
 
-# ========== LOGGER FOR HIGH-CONFIDENCE ALERTS ==========
+# === Safety Alert Logger Class ===
 class SafetyAlertLogger:
     def __init__(self):
         self.log = pd.DataFrame(columns=['timestamp', 'alert_type', 'confidence', 'duration'])
@@ -74,29 +68,39 @@ class SafetyAlertLogger:
         self._backup_file = '/tmp/alert_backup.csv'
 
     def _atomic_write(self, data):
+        """Crash-resistant file write to local backup."""
         try:
             with open(self._backup_file, 'a') as f:
                 f.write(','.join(map(str, data)) + '\n')
         except Exception as e:
-            print(f"BACKUP FAILED: {str(e)}")
+            print(f"Backup write failed: {str(e)}")
 
     def update(self, alert_type, confidence):
+        """Update logger with latest prediction and manage alert states."""
         try:
             timestamp = datetime.now()
+
+            # Validation
             if not isinstance(confidence, (float, np.floating)):
                 raise ValueError(f"Invalid confidence: {confidence}")
             if not isinstance(alert_type, str):
                 alert_type = str(alert_type)
 
+            # Buffer management
             self.alert_buffer.append((alert_type, min(max(confidence, 0.0), 1.0)))
             if len(self.alert_buffer) > 5:
                 self.alert_buffer.pop(0)
 
-            alerts = [x[0] for x in self.alert_buffer]
-            most_common = max(set(alerts), key=alerts.count, default=None)
-            conf_values = [x[1] for x in self.alert_buffer if x[0] == most_common]
-            avg_conf = np.mean(conf_values) if conf_values else 0.0
+            # Determine most common alert in buffer
+            if self.alert_buffer:
+                alerts = [x[0] for x in self.alert_buffer]
+                most_common = max(set(alerts), key=alerts.count, default=None)
+                conf_values = [x[1] for x in self.alert_buffer if x[0] == most_common]
+                avg_conf = np.mean(conf_values) if conf_values else 0.0
+            else:
+                most_common, avg_conf = None, 0.0
 
+            # If alert changed, log the previous one
             if most_common != self.current_alert:
                 if self.current_alert and self.alert_start_time:
                     duration = (timestamp - self.alert_start_time).total_seconds()
@@ -112,31 +116,31 @@ class SafetyAlertLogger:
                             pd.DataFrame([dict(zip(['timestamp', 'alert_type', 'confidence', 'duration'], log_entry))])
                         ], ignore_index=True)
                         self._atomic_write(log_entry)
-                        display(HTML(
-                            f"<div style='color:green;font-weight:bold'>"
-                            f"✔ LOGGED: {self.current_alert} ({duration:.1f}s, {avg_conf*100:.1f}%)"
-                            f"</div>"
-                        ))
+                        display(HTML(f"<div style='color:green;font-weight:bold'>Logged: {self.current_alert} ({duration:.1f}s, {avg_conf*100:.1f}%)</div>"))
+
+                # Start new alert
                 self.current_alert = most_common if avg_conf > 0.35 else None
                 self.alert_start_time = timestamp if self.current_alert else None
 
         except Exception as e:
-            print(f"⚠ LOGGER ERROR: {str(e)}")
+            print(f"Logger error: {str(e)}")
             traceback.print_exc()
 
     def get_logs(self):
+        """Retrieve logs, including backup if available."""
         try:
             try:
                 backup = pd.read_csv(self._backup_file)
                 self.log = pd.concat([self.log, backup]).drop_duplicates()
             except FileNotFoundError:
                 pass
+
             return self.log.sort_values('timestamp', ascending=False)
         except Exception as e:
-            print(f"LOG RETRIEVAL ERROR: {str(e)}")
+            print(f"Log retrieval error: {str(e)}")
             return pd.DataFrame()
 
-# ========== CAMERA HANDLER FOR IMAGE INPUT ==========
+# === Camera Handler for Fail-safe Input ===
 class FailsafeCamera:
     def __init__(self):
         self._setup_display()
@@ -157,13 +161,14 @@ class FailsafeCamera:
         for i in range(self.max_retries):
             try:
                 return eval_js(code)
-            except Exception:
+            except Exception as e:
                 if i == self.max_retries - 1:
                     raise
                 time.sleep(self.retry_delay)
 
     def start(self):
-        return self._js('''
+        try:
+            return self._js('''
             (async function() {
                 const video = document.getElementById('webcam');
                 try {
@@ -176,22 +181,27 @@ class FailsafeCamera:
                     return false;
                 }
             })()
-        ''')
+            ''')
+        except Exception as e:
+            raise RuntimeError(f"Camera initialization failed: {str(e)}")
 
     def capture_frame(self):
-        return self._js('''
+        try:
+            return self._js('''
             (function() {
                 const canvas = document.getElementById('canvas');
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(document.getElementById('webcam'), 0, 0, 640, 480);
                 return canvas.toDataURL('image/jpeg', 0.8);
             })()
-        ''')
+            ''')
+        except Exception as e:
+            raise RuntimeError(f"Frame capture failed: {str(e)}")
 
-# ========== MAIN LOGIC ==========
+# === Main Execution ===
 try:
     verify_system()
-    print("✓ System verification passed")
+    print("System verification passed")
 
     logger = SafetyAlertLogger()
     camera = FailsafeCamera()
@@ -207,6 +217,7 @@ try:
             frame_data = camera.capture_frame()
             img_bytes = b64decode(frame_data.split(',')[1])
             frame = cv2.imdecode(np.frombuffer(img_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+
             if frame is None:
                 raise ValueError("Empty frame captured")
 
@@ -242,15 +253,15 @@ try:
             time.sleep(0.1)
 
         except KeyboardInterrupt:
-            print("\n🛑 Graceful shutdown initiated")
+            print("Graceful shutdown initiated")
             break
         except Exception as e:
-            print(f"⚠ Processing error: {str(e)}")
+            print(f"Processing error: {str(e)}")
             traceback.print_exc()
             time.sleep(1)
 
 except Exception as e:
-    print(f"🚨 CRITICAL FAILURE: {str(e)}")
+    print(f"Critical system failure: {str(e)}")
     traceback.print_exc()
 
 finally:
@@ -264,13 +275,13 @@ finally:
     except:
         pass
 
-    print("\n=== FINAL ALERT LOG ===")
+    print("\nFinal Alert Log")
     logs = logger.get_logs()
     display(logs)
 
     try:
         logs.to_csv('alert_logs_verified.csv', index=False)
-        print("✓ Logs saved to 'alert_logs_verified.csv'")
+        print("Logs saved to 'alert_logs_verified.csv'")
     except Exception as e:
-        print(f"⚠ Failed to save logs: {str(e)}")
-        print("⚠ Backup available in /tmp/alert_backup.csv")
+        print(f"Failed to save logs: {str(e)}")
+        print("Backup available in /tmp/alert_backup.csv")
