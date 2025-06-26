@@ -1,4 +1,4 @@
-# AI-Powered Vehicle Safety Monitoring System
+# AI-Powered Multiclass ALert Image Identification and Logging System
 
 A real-time computer vision system that automatically detects and monitors safety alerts (fire, smoke, and other hazardous conditions) in vehicle environments using webcam feeds and MobileNetV2 deep learning model with transfer learning.
 
