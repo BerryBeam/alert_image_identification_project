@@ -103,7 +103,7 @@ Dense(NUM_CLASSES, activation='softmax', kernel_regularizer=l2(0.001))
 ## 📁 Project Structure
 
 ```
-vehicle-safety-monitoring/
+alert_image_identification-system/
 │
 ├── final_dataset_creation.py    # Dataset preparation and augmentation
 ├── train_model_learning_transfer.py       # Model training with transfer learning
