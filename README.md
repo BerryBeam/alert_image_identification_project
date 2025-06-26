@@ -105,26 +105,26 @@ Dense(NUM_CLASSES, activation='softmax', kernel_regularizer=l2(0.001))
 ```
 vehicle-safety-monitoring/
 │
-├── data_preprocessing.py    # Dataset preparation and augmentation
-├── model_training.py       # Model training with transfer learning
-├── real_time_detection.py  # Main detection system
+├── final_dataset_creation.py    # Dataset preparation and augmentation
+├── train_model_learning_transfer.py       # Model training with transfer learning
+├── prediction_cam_logger.py  # Main detection system
 ├── requirements.txt        # Dependencies
 ├── README.md              # This file
 │
 ├── alerts/                # Original alert images
-│   ├── fire.jpg
-│   ├── smoke.png
-│   └── normal.jpg
-│
-├── dataset/               # Processed dataset (auto-generated)
+│   ├── 2WD-Engaged-Indicator.png
+│   ├── 4WD-Engaged-Indicator.png
+│   └── Airbag-Indicator.png
+│ 
+├── dataset/               # Processed dataset (auto-generated- augmented images for the alerts folder- 20 images per class)
 │   ├── train/
-│   │   ├── fire/
-│   │   ├── smoke/
-│   │   └── normal/
+│   │   ├── 2WD-Engaged-Indicator/
+│   │   ├── 4WD-Engaged-Indicator/
+│   │   └── Airbag-Indicator/
 │   └── val/
-│       ├── fire/
-│       ├── smoke/
-│       └── normal/
+│       ├── 2WD-Engaged-Indicator/
+│       ├── 4WD-Engaged-Indicator/
+│       └── Airbag-Indicator/
 │
 ├── models/
 │   ├── best_model.h5      # Trained model weights
@@ -165,6 +165,13 @@ for layer in base_model.layers[:-50]:
 # 2. Initializes SafetyAlertLogger
 # 3. Sets up FailsafeCamera
 # 4. Starts continuous monitoring
+```
+
+### Step 4: Running program after training model
+```python
+# 1. In Google Colab or Jupyter notebook navigate to the files section.
+# 2. The prerequiste files to run  "prediction_cam_logger.py" are - uploading generated files from previous steps.
+# 3. The files include -  (best_model.h5, label.txt, logs/(from github repository in the same format, having subfolder structures like train and validation and respective .h5 files.
 ```
 
 ## 🔧 Key Components
