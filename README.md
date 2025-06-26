@@ -65,13 +65,13 @@ python data_preprocessing.py
 ### 3. Train the Model
 ```python
 # Run the training script
-python model_training.py
+python train_model_learning_transfer.py
 ```
 
 ### 4. Run Real-time Detection
 ```python
 # Execute the main detection system
-python real_time_detection.py
+python prediction_cam_logger.py
 ```
 
 ## 📊 Model Architecture Details
