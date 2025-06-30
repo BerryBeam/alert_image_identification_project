@@ -94,7 +94,13 @@ print("Model architecture rebuilt and weights loaded")
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def verify_system():
-    """Validate all critical components before starting execution."""
+    """
+    🔍 SYSTEM VALIDATION FUNCTION
+    PURPOSE: Pre-flight check to ensure all critical components are loaded and functional
+    VALIDATES: Model availability, class names, preprocessing functions
+    PREVENTS: Runtime failures due to missing dependencies or components
+    WORKFLOW: Check each component → Raise error if any missing → Proceed if all valid
+    """
     checks = {
         'model_loaded': 'model' in globals() and hasattr(model, 'predict'),
         'class_names_exists': 'class_names' in globals() and len(class_names) > 0,
@@ -116,7 +122,12 @@ def verify_system():
 
 class SafetyAlertLogger:
     def __init__(self):
-        """Initialize logger with empty dataframe and state tracking variables."""
+        """
+        🏗️ LOGGER INITIALIZATION FUNCTION
+        PURPOSE: Set up data structures and state variables for alert tracking
+        CREATES: Empty log DataFrame, state tracking variables, backup configuration
+        PREPARES: System for real-time alert logging and crash recovery
+        """
         self.log = pd.DataFrame(columns=['timestamp', 'alert_type', 'confidence', 'duration'])
         self.current_alert = None           # Currently active alert type
         self.alert_start_time = None        # When current alert began
@@ -125,9 +136,11 @@ class SafetyAlertLogger:
 
     def _atomic_write(self, data):
         """
-        CRASH-RESISTANT BACKUP: Write alert data to backup file
-        PURPOSE: Preserve data even if main process crashes
-        INPUT: data - list of values to write as CSV row
+        💾 CRASH-RESISTANT BACKUP FUNCTION
+        PURPOSE: Write alert data to persistent storage to survive system crashes
+        ENSURES: Data preservation even if main process terminates unexpectedly
+        MECHANISM: Atomic file append operation with error handling
+        WORKFLOW: Format data → Append to backup file → Handle write failures gracefully
         """
         try:
             with open(self._backup_file, 'a') as f:
@@ -137,16 +150,15 @@ class SafetyAlertLogger:
 
     def update(self, alert_type, confidence):
         """
-        MAIN LOGGING WORKFLOW:
-        1. Validate input data
-        2. Add to rolling buffer
-        3. Determine most common alert in buffer
-        4. Detect alert state changes
-        5. Log completed alerts with duration
-        6. Update current alert state
-        
-        INPUT: alert_type (str), confidence (float 0-1)
-        SIDE EFFECTS: Updates internal state, writes to backup, displays logs
+        🔄 MAIN ALERT PROCESSING FUNCTION
+        PURPOSE: Process incoming predictions and manage alert state transitions
+        RESPONSIBILITIES: 
+        - Validate input data integrity
+        - Maintain rolling prediction buffer for stability
+        - Detect meaningful alert state changes
+        - Log persistent alerts with timing information
+        - Trigger backup writes and UI updates
+        WORKFLOW: Validate → Buffer → Consensus → State Change Detection → Logging → Backup
         """
         try:
             timestamp = datetime.now()
@@ -207,9 +219,11 @@ class SafetyAlertLogger:
 
     def get_logs(self):
         """
-        RETRIEVE ALL LOGS: Combine main log with backup data
-        RECOVERY: Load backup file if available and merge with current logs
-        OUTPUT: Complete sorted DataFrame of all logged alerts
+        📋 LOG RETRIEVAL AND RECOVERY FUNCTION
+        PURPOSE: Compile complete alert history from all sources (memory + backup)
+        HANDLES: Data recovery from crash scenarios by merging backup files
+        ENSURES: No alert data is lost even after system interruptions
+        WORKFLOW: Load backup → Merge with current logs → Remove duplicates → Sort by time
         """
         try:
             # Try to load backup data and merge
@@ -234,19 +248,23 @@ class SafetyAlertLogger:
 
 class FailsafeCamera:
     def __init__(self):
-        """Initialize camera with HTML interface and retry parameters."""
+        """
+        📷 CAMERA SYSTEM INITIALIZATION FUNCTION
+        PURPOSE: Configure camera interface with robust error handling capabilities
+        ESTABLISHES: HTML5 video interface, retry parameters, error recovery settings
+        PREPARES: System for reliable video capture in web environment
+        """
         self._setup_display()
         self.max_retries = 3    # Maximum retry attempts for failed operations
         self.retry_delay = 2    # Seconds to wait between retries
 
     def _setup_display(self):
         """
-        HTML INTERFACE SETUP: Create camera display elements
-        ELEMENTS:
-        - webcam: Hidden video element for camera stream
-        - canvas: Hidden canvas for frame capture
-        - output: Visible image element for processed frames
-        - status: Status display area
+        🖥️ HTML INTERFACE CREATION FUNCTION
+        PURPOSE: Generate web-based camera display interface with all required elements
+        CREATES: Video element (hidden), canvas (hidden), output image, status display
+        ENABLES: Real-time video processing and display in browser environment
+        WORKFLOW: Generate HTML → Inject into page → Prepare elements for JavaScript control
         """
         display(HTML('''
         <div id="camera-container">
@@ -259,11 +277,11 @@ class FailsafeCamera:
 
     def _js(self, code):
         """
-        JAVASCRIPT EXECUTION WITH RETRY LOGIC
-        PURPOSE: Execute JavaScript code with automatic retry on failure
-        INPUT: code - JavaScript code string to execute
-        OUTPUT: Result of JavaScript execution
-        RETRY LOGIC: Up to max_retries attempts with delay between failures
+        🔄 JAVASCRIPT EXECUTION WITH RETRY FUNCTION
+        PURPOSE: Execute JavaScript code with automatic failure recovery
+        HANDLES: Network issues, browser restrictions, temporary failures
+        IMPLEMENTS: Exponential backoff retry strategy for robustness
+        WORKFLOW: Execute → Catch failure → Wait → Retry → Escalate if all attempts fail
         """
         for i in range(self.max_retries):
             try:
