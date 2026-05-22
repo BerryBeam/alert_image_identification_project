@@ -2,10 +2,10 @@
 import os  # For file/folder operations
 import numpy as np  # For numerical operations
 import tensorflow as tf  # Main deep learning framework
-from tensorflow.keras.applications import MobileNetV2  # Pre-trained model we'll use
+from tensorflow.keras.applications import MobileNetV2  # Pre-trained model 
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input  # Special image formatting
-from tensorflow.keras.preprocessing.image import ImageDataGenerator  # For loading/processing images
-from tensorflow.keras.models import Model  # For building our model
+from tensorflow.keras.preprocessing.image import ImageDataGenerator  #  loading/processing images
+from tensorflow.keras.models import Model  #  building  model
 from tensorflow.keras.layers import (GlobalAveragePooling2D, Dropout,
                                    Dense, BatchNormalization)  # Layers we'll add
 from tensorflow.keras.optimizers import Adam  # Optimization algorithm
